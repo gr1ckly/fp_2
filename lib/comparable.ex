@@ -4,13 +4,15 @@ defprotocol Comparable do
 end
 
 defmodule Comparable.Util do
-  @compile {:no_warn_undefined, {:erlang, :compare, 2}}
+  @moduledoc """
+  Вспомогательные функции для сравнения с приведением к :lt/:eq/:gt.
+  """
   @spec order(term(), term()) :: :lt | :eq | :gt
   def order(a, b) do
-    case :erlang.compare(a, b) do
-      -1 -> :lt
-      0 -> :eq
-      1 -> :gt
+    cond do
+      a === b -> :eq
+      a < b -> :lt
+      true -> :gt
     end
   end
 end
@@ -40,10 +42,5 @@ defimpl Comparable, for: List do
 end
 
 defimpl Comparable, for: Map do
-  def compare(a, b), do: Comparable.Util.order(a, b)
-end
-
-# Фоллбек для прочих типов (PID, функции, порты и т.п.)
-defimpl Comparable, for: Any do
   def compare(a, b), do: Comparable.Util.order(a, b)
 end

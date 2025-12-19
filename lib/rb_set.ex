@@ -8,11 +8,11 @@ defmodule RbSet do
   defstruct set: nil
 
   @opaque t :: %__MODULE__{
-      set: RbTree.t() | nil,
-  }
+            set: RbTree.t() | nil
+          }
 
   @spec new() :: RbSet.t()
-  def new() do
+  def new do
     %RbSet{set: RbTree.new()}
   end
 
@@ -31,6 +31,12 @@ defmodule RbSet do
     %RbSet{set: RbTree.insert(set.set, value, nil)}
   end
 
+  @spec get_first(set :: RbSet.t()) :: Comparable.t() | nil
+  def get_first(set) do
+    {res1, {key, _}} = RbTree.get_first(set.set)
+    if res1 == :ok, do: key, else: nil
+  end
+
   @spec filter(set :: RbSet.t(), fun :: (Comparable.t() -> as_boolean(term()))) :: RbSet.t()
   def filter(set, fun) do
     %RbSet{set: RbTree.filter(set.set, fun)}
@@ -38,10 +44,9 @@ defmodule RbSet do
 
   @spec map(set :: RbSet.t(), fun :: (Comparable.t() -> Comparable.t())) :: RbSet.t()
   def map(set, fun) do
-    new_set = Enum.reduce(RbTree.to_list(set.set.root, []), RbSet.new(), fn {key, _value}, acc ->
+    Enum.reduce(RbTree.to_list(set.set.root, []), RbSet.new(), fn {key, _value}, acc ->
       RbSet.insert(acc, fun.(key))
     end)
-    new_set
   end
 
   @spec foldl(set :: RbSet.t(), acc :: any(), fun :: (any(), Comparable.t() -> any())) :: any()
@@ -68,6 +73,7 @@ defmodule RbSet do
   defimpl Monoid do
     @spec empty(Any) :: RbSet.t()
     def empty(_), do: RbSet.new()
+
     def combine(set1, set2) do
       %RbSet{set: Monoid.combine(set1.set, set2.set)}
     end
@@ -77,17 +83,21 @@ defmodule RbSet do
     @spec into(RbSet.t()) :: {RbSet.t(), (any(), :done | :halt | {any(), any()} -> any())}
     def into(%RbSet{} = curr_set) do
       collector_fun = fn
-      curr_set, {:cont, {key, _value}} ->
-        RbSet.insert(curr_set, key)
+        curr_set, {:cont, {key, _value}} ->
+          RbSet.insert(curr_set, key)
 
-      curr_set, :done ->
-        curr_set
+        curr_set, :done ->
+          curr_set
 
-      _curr_set, :halt ->
-        :ok
-    end
-    initial_tree = curr_set
+        _curr_set, :halt ->
+          :ok
+
+        curr_set, {:cont, key} ->
+          RbSet.insert(curr_set, key)
+      end
+
+      initial_tree = curr_set
       {initial_tree, collector_fun}
     end
-    end
+  end
 end
