@@ -179,46 +179,68 @@ defmodule RbTree do
   defp do_delete(nil, _key), do: nil
 
   defp do_delete(%Node{} = node, key) do
-    node =
-      if Comparable.compare(key, node.key) == :lt do
-        node =
-          if node.left && !red?(node.left) && !red?(node.left.left) do
-            move_red_left(node)
-          else
-            node
-          end
+    case Comparable.compare(key, node.key) do
+      :lt -> delete_left(node, key)
+      _other -> delete_right(node, key)
+    end
+  end
 
-        %Node{node | left: do_delete(node.left, key)}
-      else
-        node =
-          if red?(node.left) do
-            rotate_right(node)
-          else
-            node
-          end
-
-        if Comparable.compare(key, node.key) == :eq && node.right == nil do
-          nil
-        else
-          node =
-            if node.right && !red?(node.right) && !red?(node.right.left) do
-              move_red_right(node)
-            else
-              node
-            end
-
-          if node && Comparable.compare(key, node.key) == :eq do
-            {min_key, min_value} = min_node(node.right)
-
-            %Node{node | key: min_key, value: min_value, right: delete_min(node.right)}
-            |> fix_up()
-          else
-            %Node{node | right: do_delete(node.right, key)} |> fix_up()
-          end
-        end
-      end
-
+  defp delete_left(%Node{} = node, key) do
     node
+    |> ensure_left_has_red()
+    |> update_left_child(key)
+  end
+
+  defp ensure_left_has_red(%Node{} = node) do
+    if node.left && !red?(node.left) && !red?(node.left.left) do
+      move_red_left(node)
+    else
+      node
+    end
+  end
+
+  defp update_left_child(%Node{} = node, key), do: %Node{node | left: do_delete(node.left, key)}
+
+  defp delete_right(%Node{} = node, key) do
+    node
+    |> rotate_if_left_red()
+    |> handle_right_branch(key)
+  end
+
+  defp rotate_if_left_red(%Node{} = node) do
+    if red?(node.left) do
+      rotate_right(node)
+    else
+      node
+    end
+  end
+
+  defp handle_right_branch(%Node{right: nil} = _node, key) do
+    # Если правого поддерева нет, узел можно удалить только если ключ совпадает
+    # В этом случае наверху вернется nil.
+    _ = key
+    nil
+  end
+
+  defp handle_right_branch(%Node{} = node, key) do
+    node = ensure_right_has_red(node)
+
+    if Comparable.compare(key, node.key) == :eq do
+      {min_key, min_value} = min_node(node.right)
+
+      %Node{node | key: min_key, value: min_value, right: delete_min(node.right)}
+      |> fix_up()
+    else
+      %Node{node | right: do_delete(node.right, key)} |> fix_up()
+    end
+  end
+
+  defp ensure_right_has_red(%Node{} = node) do
+    if node.right && !red?(node.right) && !red?(node.right.left) do
+      move_red_right(node)
+    else
+      node
+    end
   end
 
   defp delete_min(%Node{left: nil, right: right}), do: right
