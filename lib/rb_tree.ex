@@ -179,71 +179,49 @@ defmodule RbTree do
   defp do_delete(nil, _key), do: nil
 
   defp do_delete(%Node{} = node, key) do
-    compare = Comparable.compare(key, node.key)
+    node =
+      if Comparable.compare(key, node.key) == :lt do
+        node =
+          if node.left && !red?(node.left) && !red?(node.left.left) do
+            move_red_left(node)
+          else
+            node
+          end
+
+        %Node{node | left: do_delete(node.left, key)}
+      else
+        node =
+          if red?(node.left) do
+            rotate_right(node)
+          else
+            node
+          end
+
+        if Comparable.compare(key, node.key) == :eq && node.right == nil do
+          nil
+        else
+          node =
+            if node.right && !red?(node.right) && !red?(node.right.left) do
+              move_red_right(node)
+            else
+              node
+            end
+
+          if node && Comparable.compare(key, node.key) == :eq do
+            {min_key, min_value} = min_node(node.right)
+
+            %Node{node | key: min_key, value: min_value, right: delete_min(node.right)}
+            |> fix_up()
+          else
+            %Node{node | right: do_delete(node.right, key)} |> fix_up()
+          end
+        end
+      end
 
     node
-    |> maybe_delete_left(compare, key)
-    |> maybe_delete_right(compare, key)
   end
 
-  defp maybe_delete_left(node, :lt, key) do
-    node
-    |> ensure_left_has_red()
-    |> update_left(key)
-  end
-
-  defp maybe_delete_left(node, _compare, _key), do: node
-
-  defp update_left(%Node{} = node, key), do: %Node{node | left: do_delete(node.left, key)}
-
-  defp ensure_left_has_red(%Node{} = node) do
-    if node.left && !red?(node.left) && !red?(node.left.left) do
-      move_red_left(node)
-    else
-      node
-    end
-  end
-
-  defp maybe_delete_right(node, :lt, _key), do: node
-
-  defp maybe_delete_right(node, compare, key) do
-    node
-    |> rotate_if_left_red()
-    |> handle_right(compare, key)
-  end
-
-  defp rotate_if_left_red(%Node{} = node) do
-    if red?(node.left) do
-      rotate_right(node)
-    else
-      node
-    end
-  end
-
-  defp handle_right(%Node{right: nil}, :eq, _key), do: nil
-
-  defp handle_right(%Node{} = node, _compare, key) do
-    node = ensure_right_has_red(node)
-
-    if node && Comparable.compare(key, node.key) == :eq do
-      {min_key, min_value} = min_node(node.right)
-
-      %Node{node | key: min_key, value: min_value, right: delete_min(node.right)}
-      |> fix_up()
-    else
-      %Node{node | right: do_delete(node.right, key)} |> fix_up()
-    end
-  end
-
-  defp ensure_right_has_red(%Node{} = node) do
-    if node.right && !red?(node.right) && !red?(node.right.left) do
-      move_red_right(node)
-    else
-      node
-    end
-  end
-
-  defp delete_min(%Node{left: nil}), do: nil
+  defp delete_min(%Node{left: nil, right: right}), do: right
 
   defp delete_min(%Node{} = node) do
     node =
@@ -366,8 +344,26 @@ defmodule RbTree do
   defp do_get_first(%Node{left: left}), do: do_get_first(left)
 
   @spec equal?(t(), t()) :: boolean()
-  def equal?(tree1, tree2) do
-    Enum.sort(to_list(tree1, [])) == Enum.sort(to_list(tree2, []))
+  def equal?(tree1, tree2), do: equal_iter(tree1, tree2)
+
+  defp equal_iter(%RbTree{} = tree1, %RbTree{} = tree2) do
+    case {get_first(tree1), get_first(tree2)} do
+      {{:none, _}, {:none, _}} ->
+        true
+
+      {{:none, _}, _} ->
+        false
+
+      {_, {:none, _}} ->
+        false
+
+      {{:ok, {key1, value1}}, {:ok, {key2, value2}}} ->
+        if key1 == key2 and value1 == value2 do
+          equal_iter(delete(tree1, key1), delete(tree2, key2))
+        else
+          false
+        end
+    end
   end
 
   @spec to_list(Node.t() | t() | nil, list()) :: list({Comparable.t(), any()})
@@ -381,20 +377,27 @@ defmodule RbTree do
   end
 
   @spec fold_keyl(t(), any(), (any(), Comparable.t() -> any())) :: any()
-  def fold_keyl(tree, acc, func) do
-    tree
-    |> to_list([])
-    |> Enum.sort_by(fn {key, _value} -> key end)
-    |> Enum.reduce(acc, fn {key, _value}, current_acc -> func.(current_acc, key) end)
+  def fold_keyl(%RbTree{root: root}, acc, func), do: do_fold_keyl(root, acc, func)
+  def fold_keyl(nil, acc, _func), do: acc
+
+  defp do_fold_keyl(nil, acc, _func), do: acc
+
+  defp do_fold_keyl(%Node{left: left, right: right, key: key}, acc, func) do
+    acc = do_fold_keyl(left, acc, func)
+    acc = func.(acc, key)
+    do_fold_keyl(right, acc, func)
   end
 
   @spec fold_keyr(t(), any(), (any(), Comparable.t() -> any())) :: any()
-  def fold_keyr(tree, acc, func) do
-    tree
-    |> to_list([])
-    |> Enum.sort_by(fn {key, _value} -> key end)
-    |> Enum.reverse()
-    |> Enum.reduce(acc, fn {key, _value}, current_acc -> func.(current_acc, key) end)
+  def fold_keyr(%RbTree{root: root}, acc, func), do: do_fold_keyr(root, acc, func)
+  def fold_keyr(nil, acc, _func), do: acc
+
+  defp do_fold_keyr(nil, acc, _func), do: acc
+
+  defp do_fold_keyr(%Node{left: left, right: right, key: key}, acc, func) do
+    acc = do_fold_keyr(right, acc, func)
+    acc = func.(acc, key)
+    do_fold_keyr(left, acc, func)
   end
 
   @spec filter(t(), (Comparable.t() -> as_boolean(term()))) :: t()
