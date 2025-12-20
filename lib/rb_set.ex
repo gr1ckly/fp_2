@@ -49,6 +49,25 @@ defmodule RbSet do
     end)
   end
 
+  @spec new_iter(set :: RbSet.t()) :: list(RbTree.Node.t())
+  def new_iter(%RbSet{set: %RbTree{root: root}}), do: RbTree.new_iter(root)
+
+  @spec iter_next(iter :: list(RbTree.Node.t())) ::
+          {:ok, Comparable.t(), list(RbTree.Node.t())} | {:none, nil, []}
+  def iter_next(iter) do
+    case RbTree.iter_next(iter) do
+      {:ok, {key, _value}, next_iter} -> {:ok, key, next_iter}
+      {:none, nil, []} -> {:none, nil, []}
+    end
+  end
+
+  def iter_to_list(iter) do
+    case iter_next(iter) do
+      {:ok, key, next_iter} -> [key | iter_to_list(next_iter)]
+      {:none, nil, []} -> []
+    end
+  end
+
   @spec foldl(set :: RbSet.t(), acc :: any(), fun :: (any(), Comparable.t() -> any())) :: any()
   def foldl(set, acc, func) do
     RbTree.fold_keyl(set.set, acc, func)
@@ -69,6 +88,8 @@ defmodule RbSet do
   def equals?(set1, set2) do
     RbTree.equal?(set1.set, set2.set)
   end
+
+
 
   defimpl Monoid do
     @spec empty(Any) :: RbSet.t()

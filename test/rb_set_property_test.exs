@@ -62,4 +62,13 @@ defmodule RbSetPropertyTest do
       assert RbSet.get_first(set) == min_key
     end
   end
+
+  property "correct iterating" do
+    check all (list <- list_of(integer())) do
+      set = RbSet.new(list)
+      sorted_list = list |> Enum.uniq() |> Enum.sort()
+      set_list = RbSet.iter_to_list(RbSet.new_iter(set))
+      assert set_list == sorted_list
+    end
+  end
 end
