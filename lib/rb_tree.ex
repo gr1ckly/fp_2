@@ -216,8 +216,6 @@ defmodule RbTree do
   end
 
   defp handle_right_branch(%Node{right: nil} = _node, key) do
-    # Если правого поддерева нет, узел можно удалить только если ключ совпадает
-    # В этом случае наверху вернется nil.
     _ = key
     nil
   end
