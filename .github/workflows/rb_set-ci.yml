@@ -1,5 +1,4 @@
-name: 
-  rb_set
+name: rb_set
 
 on:
   push:
@@ -22,7 +21,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-	      mix deps.get
+        mix deps.get
       
     - name: Check format
       run: |
