@@ -89,8 +89,6 @@ defmodule RbSet do
     RbTree.equal?(set1.set, set2.set)
   end
 
-
-
   defimpl Monoid do
     @spec empty(Any) :: RbSet.t()
     def empty(_), do: RbSet.new()

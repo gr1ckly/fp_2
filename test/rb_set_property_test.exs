@@ -64,7 +64,7 @@ defmodule RbSetPropertyTest do
   end
 
   property "correct iterating" do
-    check all (list <- list_of(integer())) do
+    check all(list <- list_of(integer())) do
       set = RbSet.new(list)
       sorted_list = list |> Enum.uniq() |> Enum.sort()
       set_list = RbSet.iter_to_list(RbSet.new_iter(set))

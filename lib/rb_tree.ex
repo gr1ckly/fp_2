@@ -381,10 +381,14 @@ defmodule RbTree do
 
   defp equal_iter(iter1, iter2) do
     case {iter_next(iter1), iter_next(iter2)} do
-      {{:none, nil, []}, {:none, nil, []}} -> true
+      {{:none, nil, []}, {:none, nil, []}} ->
+        true
+
       {{:ok, {key1, value1}, next1}, {:ok, {key2, value2}, next2}} ->
         key1 == key2 and value1 == value2 and equal_iter(next1, next2)
-      _other -> false
+
+      _other ->
+        false
     end
   end
 
