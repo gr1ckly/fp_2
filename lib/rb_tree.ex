@@ -363,26 +363,32 @@ defmodule RbTree do
   defp do_get_first(%Node{left: nil} = node), do: {:ok, {node.key, node.value}}
   defp do_get_first(%Node{left: left}), do: do_get_first(left)
 
-  @spec equal?(t(), t()) :: boolean()
-  def equal?(tree1, tree2), do: equal_iter(tree1, tree2)
+  def new_iter(nil), do: []
+  def new_iter(%Node{} = node), do: add_left(node, [])
 
-  defp equal_iter(%RbTree{} = tree1, %RbTree{} = tree2) do
-    case {get_first(tree1), get_first(tree2)} do
-      {{:none, _}, {:none, _}} ->
+  defp add_left(nil, stack), do: stack
+  defp add_left(%Node{} = node, stack), do: add_left(node.left, [node | stack])
+
+  def iter_next([]), do: {:none, nil, []}
+
+  def iter_next([%Node{key: key, value: value, right: right} | stack]) do
+    {:ok, {key, value}, add_left(right, stack)}
+  end
+
+  @spec equal?(t(), t()) :: boolean()
+  def equal?(%RbTree{root: tree1}, %RbTree{root: tree2}),
+    do: equal_iter(new_iter(tree1), new_iter(tree2))
+
+  defp equal_iter(iter1, iter2) do
+    case {iter_next(iter1), iter_next(iter2)} do
+      {{:none, nil, []}, {:none, nil, []}} ->
         true
 
-      {{:none, _}, _} ->
-        false
+      {{:ok, {key1, value1}, next1}, {:ok, {key2, value2}, next2}} ->
+        key1 == key2 and value1 == value2 and equal_iter(next1, next2)
 
-      {_, {:none, _}} ->
+      _other ->
         false
-
-      {{:ok, {key1, value1}}, {:ok, {key2, value2}}} ->
-        if key1 == key2 and value1 == value2 do
-          equal_iter(delete(tree1, key1), delete(tree2, key2))
-        else
-          false
-        end
     end
   end
 
